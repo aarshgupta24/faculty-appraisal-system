@@ -18,15 +18,19 @@ import {
 	getCompletedSectionsCount,
 	hydrateFromServer,
 } from "@/lib/localStorage";
+import { getAppraisalStatus, submitAppraisal } from "@/lib/api";
 import { APPRAISAL_SECTIONS } from "@/lib/constants";
-import { Award, BookOpen, Calendar, TrendingUp, Loader2, LogOut } from "lucide-react";
+import { Award, BookOpen, Calendar, TrendingUp, Loader2, LogOut, Info, AlertTriangle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function Dashboard() {
 	const router = useRouter();
 	const { data: session, status } = useSession();
 	const [totalScore, setTotalScore] = useState(getTotalScore());
 	const [completedSections, setCompletedSections] = useState(getCompletedSectionsCount());
+	const [adminStatus, setAdminStatus] = useState<{admin_status: string, verified_score: number, admin_remarks: string} | null>(null);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const totalSections = APPRAISAL_SECTIONS.length;
 	const progressPercentage = (completedSections / totalSections) * 100;
 
@@ -41,6 +45,11 @@ export default function Dashboard() {
 			hydrateFromServer().then(() => {
 				setTotalScore(getTotalScore());
 				setCompletedSections(getCompletedSectionsCount());
+			});
+			getAppraisalStatus().then((res: any) => {
+				if (res) {
+					setAdminStatus(res);
+				}
 			});
 		}
 	}, [status, router]);
@@ -65,6 +74,20 @@ export default function Dashboard() {
 		router.push("/login");
 	};
 
+	const handleFinalSubmit = async () => {
+		if (progressPercentage < 100) return;
+		setIsSubmitting(true);
+		try {
+			await submitAppraisal();
+			setAdminStatus({ admin_status: "Pending Review", verified_score: 0, admin_remarks: "" });
+			toast.success("Appraisal submitted successfully for review!");
+		} catch (error) {
+			toast.error("Failed to submit appraisal. Please try again.");
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
 	return (
 		<div className="min-h-screen bg-muted/30">
 			<div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -87,6 +110,52 @@ export default function Dashboard() {
 						Logout
 					</Button>
 				</div>
+
+				{/* Admin Review Status Alert */}
+				{adminStatus && (
+					<div className="mb-8">
+						{adminStatus.admin_status === "Pending Review" && (
+							<Alert>
+								<Info className="h-4 w-4" />
+								<AlertTitle>Under Review</AlertTitle>
+								<AlertDescription>
+									Your appraisal has been submitted and is currently waiting for HOD/Admin review.
+								</AlertDescription>
+							</Alert>
+						)}
+						{adminStatus.admin_status === "Returned" && (
+							<Alert variant="destructive" className="bg-red-50 border-red-200 text-red-900">
+								<AlertTriangle className="h-4 w-4" color="#b91c1c" />
+								<AlertTitle className="text-red-900">Returned for Revision</AlertTitle>
+								<AlertDescription>
+									<p className="mb-2">Your appraisal was sent back by the HOD/Admin.</p>
+									{adminStatus.admin_remarks && (
+										<div className="bg-white/50 p-3 rounded-md text-sm italic border border-red-100">
+											&quot;{adminStatus.admin_remarks}&quot;
+										</div>
+									)}
+								</AlertDescription>
+							</Alert>
+						)}
+						{adminStatus.admin_status === "Reviewed" && (
+							<Alert className="bg-green-50 border-green-200 text-green-900">
+								<CheckCircle className="h-4 w-4" color="#15803d" />
+								<AlertTitle className="text-green-900">Approved</AlertTitle>
+								<AlertDescription>
+									<p className="mb-2">Your appraisal has been successfully reviewed and approved.</p>
+									{adminStatus.verified_score > 0 && (
+										<p className="font-medium mb-2">Verified Score: {adminStatus.verified_score}</p>
+									)}
+									{adminStatus.admin_remarks && (
+										<div className="bg-white/50 p-3 rounded-md text-sm italic border border-green-100">
+											&quot;{adminStatus.admin_remarks}&quot;
+										</div>
+									)}
+								</AlertDescription>
+							</Alert>
+						)}
+					</div>
+				)}
 
 				{/* Stats Grid */}
 				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
@@ -171,17 +240,41 @@ export default function Dashboard() {
 
 				{/* Action Cards */}
 				<div className="grid gap-6 md:grid-cols-2">
-					<Card className="border-primary/50">
+					<Card className="border-primary/50 flex flex-col justify-between">
 						<CardHeader>
-							<CardTitle>Continue Appraisal</CardTitle>
+							<CardTitle>
+								{adminStatus?.admin_status === "Pending Review" || adminStatus?.admin_status === "Reviewed"
+									? "View Appraisal"
+									: "Continue Appraisal"}
+							</CardTitle>
 							<CardDescription>
-								Resume filling out your appraisal sections
+								{adminStatus?.admin_status === "Pending Review" || adminStatus?.admin_status === "Reviewed"
+									? "Review your submitted appraisal sections (Read-Only)"
+									: "Resume filling out your appraisal sections"}
 							</CardDescription>
 						</CardHeader>
-						<CardContent>
-							<Link href="/appraisal/general-details">
-								<Button className="w-full">Go to Appraisal Sections</Button>
+						<CardContent className="space-y-4">
+							<Link href="/appraisal/general-details" className="block w-full">
+								<Button className="w-full" variant="outline">
+									{adminStatus?.admin_status === "Pending Review" || adminStatus?.admin_status === "Reviewed"
+										? "View Submitted Sections"
+										: "Go to Appraisal Sections"}
+								</Button>
 							</Link>
+							
+							{/* Final Submit Logic */}
+							{(adminStatus?.admin_status === "Draft" || adminStatus?.admin_status === "Returned") && (
+								<div className="pt-4 border-t">
+									<Button 
+										className="w-full" 
+										disabled={progressPercentage < 100 || isSubmitting}
+										onClick={handleFinalSubmit}
+									>
+										{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+										{progressPercentage < 100 ? "Complete All Sections to Submit" : "Final Submit for Review"}
+									</Button>
+								</div>
+							)}
 						</CardContent>
 					</Card>
 

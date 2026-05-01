@@ -11,6 +11,7 @@ import {
 	logout,
 	isAuthenticated,
 } from "@/lib/localStorage";
+import { getAppraisalStatus } from "@/lib/api";
 import { useSession, signOut } from "next-auth/react";
 import { useServerSync } from "@/hooks/useServerSync";
 import { AppraisalData, SectionStatus, ScoredItem } from "@/lib/types";
@@ -29,6 +30,7 @@ export default function AppraisalLayout({ children }: AppraisalLayoutProps) {
 		typeof window !== "undefined" ? window.innerWidth >= 768 : true
 	);
 	const [appraisalData, setAppraisalDataState] = useState(getAppraisalData());
+	const [adminStatus, setAdminStatus] = useState<string | null>(null);
 	const { data: session, status } = useSession();
 
 	// Hydrate localStorage from MongoDB on mount (handles new browser/incognito)
@@ -65,6 +67,10 @@ export default function AppraisalLayout({ children }: AppraisalLayoutProps) {
 
 		// Refresh appraisal data when location changes
 		setAppraisalDataState(getAppraisalData());
+		
+		getAppraisalStatus().then((res: any) => {
+			if (res) setAdminStatus(res.admin_status);
+		});
 
 		// If on a small screen, close the sidebar when navigating between sections
 		if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -236,7 +242,17 @@ export default function AppraisalLayout({ children }: AppraisalLayoutProps) {
 
 				{/* Main Content */}
 				<main className="flex-1 p-4 md:p-8">
-					<div className="mx-auto max-w-5xl">{children}</div>
+					<div className="mx-auto max-w-5xl">
+						{(adminStatus === "Pending Review" || adminStatus === "Reviewed") && (
+							<div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm font-medium flex items-center">
+								<Clock className="w-5 h-5 mr-2" />
+								This form is currently locked (Read-Only) because it is {adminStatus === "Reviewed" ? "already Approved" : "under Review"}. You cannot make changes at this time.
+							</div>
+						)}
+						<div className={(adminStatus === "Pending Review" || adminStatus === "Reviewed") ? "pointer-events-none opacity-80 select-none" : ""}>
+							{children}
+						</div>
+					</div>
 				</main>
 			</div>
 		</div>

@@ -155,19 +155,22 @@ export default function HODDashboard() {
 	}, []);
 
 	// --- COMPUTED VALUES ---
-	const filteredFaculty = facultyList.filter((f) => {
+	// Filter out Draft users so HOD only sees submitted forms
+	const validFacultyList = facultyList.filter(f => f.status !== "Draft");
+
+	const filteredFaculty = validFacultyList.filter((f) => {
 		const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase());
 		const matchesTab = f.status === activeTab;
 		return matchesSearch && matchesTab;
 	});
 
 	const stats = useMemo(() => {
-		const total = facultyList.length;
-		const submitted = facultyList.length; // Assuming all fetched are submitted
-		const pending = facultyList.filter(
+		const total = facultyList.length; // Total faculty in system
+		const submitted = validFacultyList.length; // Faculty who have clicked "Final Submit"
+		const pending = validFacultyList.filter(
 			(f) => f.status === "Pending Review"
 		).length;
-		const totalScore = facultyList.reduce((acc, curr) => acc + curr.score, 0);
+		const totalScore = validFacultyList.reduce((acc, curr) => acc + curr.score, 0);
 		const avg = submitted > 0 ? (totalScore / submitted).toFixed(1) : 0;
 		return { total, submitted, pending, avg };
 	}, [facultyList]);

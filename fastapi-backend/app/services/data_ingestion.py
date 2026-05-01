@@ -363,3 +363,39 @@ class DataIngestionService:
         except Exception as e:
             logger.error(f"Error updating appraisal status: {e}")
             raise e
+
+    async def get_appraisal_status(self, user_id: str):
+        """Retrieve the admin appraisal status for a user."""
+        try:
+            result = await mongo_client.find_one(
+                self.collection_name,
+                {"user_id": user_id},
+                {"_id": 0, "admin_status": 1, "verified_score": 1, "admin_remarks": 1},
+            )
+            if result:
+                return {
+                    "admin_status": result.get("admin_status", "Draft"),
+                    "verified_score": result.get("verified_score", 0),
+                    "admin_remarks": result.get("admin_remarks", "")
+                }
+            return {
+                "admin_status": "Draft",
+                "verified_score": 0,
+                "admin_remarks": ""
+            }
+        except Exception as e:
+            logger.error(f"Error getting appraisal status: {e}")
+            raise e
+
+    async def submit_appraisal(self, user_id: str):
+        """Mark appraisal as Pending Review when faculty submits."""
+        try:
+            filter_dict = {"user_id": user_id}
+            update = {"$set": {"admin_status": "Pending Review"}}
+            await mongo_client.update_one(
+                self.collection_name, filter_dict, update, upsert=True
+            )
+            return {"message": "Appraisal submitted successfully"}
+        except Exception as e:
+            logger.error(f"Error submitting appraisal: {e}")
+            raise e

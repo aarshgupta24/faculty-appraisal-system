@@ -293,3 +293,41 @@ export async function updateAppraisalStatus(
   }
 }
 
+/**
+ * Fetch the admin appraisal status for the user.
+ */
+export async function getAppraisalStatus(userId?: string): Promise<unknown | null> {
+  const uid = userId || getUserId();
+  if (!uid) {
+    return null;
+  }
+  try {
+    const response = await apiGet<{ message: string; result: unknown | null }>(
+      API_ENDPOINTS.GET_APPRAISAL_STATUS,
+      { user_id: uid }
+    );
+    return response?.result ?? null;
+  } catch (error) {
+    console.error('Failed to fetch appraisal status:', error);
+    return null;
+  }
+}
+
+/**
+ * Submit the appraisal for HOD/Admin review.
+ */
+export async function submitAppraisal(userId?: string): Promise<void> {
+  const uid = userId || getUserId();
+  if (!uid) {
+    throw new Error('User ID not found');
+  }
+  try {
+    await apiPost(API_ENDPOINTS.SUBMIT_APPRAISAL, { user_id: uid });
+  } catch (error) {
+    console.error('Failed to submit appraisal:', error);
+    throw error;
+  }
+}
+
+
+

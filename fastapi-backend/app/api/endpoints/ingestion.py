@@ -287,3 +287,29 @@ async def update_appraisal_status(data: Dict = Body(...)):
         return {"message": "Appraisal status updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error updating appraisal status")
+
+@router.get("/get-appraisal-status/")
+async def get_appraisal_status(
+    user_id: str = Query(..., description="User ID"),
+):
+    """Retrieve the admin appraisal status for a user."""
+    try:
+        result = await service.get_appraisal_status(user_id)
+        return {"message": "Status fetched successfully", "result": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail="Error fetching appraisal status"
+        )
+
+@router.post("/submit-appraisal/")
+async def submit_appraisal(data: Dict = Body(...)):
+    """Mark appraisal as Pending Review when faculty submits."""
+    user_id = data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="User ID is required")
+    try:
+        await service.submit_appraisal(user_id)
+        return {"message": "Appraisal submitted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error submitting appraisal")
+
