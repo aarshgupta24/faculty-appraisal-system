@@ -13,7 +13,7 @@ export default auth((req) => {
 
     if (publicRoutes.some((route) => pathname.startsWith(route))) {
         if (token && pathname.startsWith("/login")) {
-            const role = token.role as string;
+            const role = (token as any).role as string;
             const redirectUrl = role === "admin" ? "/hod/dashboard" : "/dashboard";
             return NextResponse.redirect(new URL(redirectUrl, req.url));
         }
@@ -26,7 +26,7 @@ export default auth((req) => {
         return NextResponse.redirect(loginUrl);
     }
 
-    const role = token.role as string;
+    const role = (token as any).role as string;
     if (adminRoutes.some((route) => pathname.startsWith(route))) {
         if (role !== "admin") {
             return NextResponse.redirect(new URL("/dashboard", req.url));
