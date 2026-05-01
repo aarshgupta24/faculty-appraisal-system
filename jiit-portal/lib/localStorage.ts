@@ -132,20 +132,20 @@ export const updateSectionBySectionId = (
   }
 
   const currentData = getAppraisalData();
-  
+
   // If the section supports apiScore, attach it
   const updatedSection =
     data && typeof data === 'object' && data !== null
       ? { ...(data as Record<string, unknown>), apiScore: score }
       : data;
-  
+
   const newStatus = { ...currentData.sectionStatus, [sectionId]: status };
   const updatedData = {
     ...currentData,
     [dataKey]: updatedSection,
     sectionStatus: newStatus,
   };
-  
+
   setAppraisalData(updatedData);
   return updatedSection;
 };
@@ -187,7 +187,7 @@ export const getSectionDataBySectionId = (
     console.warn(`Unknown section ID: ${sectionId}`);
     return undefined;
   }
-  
+
   const data = getAppraisalData();
   return data[dataKey];
 };
@@ -230,19 +230,13 @@ export const updateSectionStatus = (
 };
 
 export const getTotalScore = (): number => {
-  const data = getAppraisalData();
   let total = 0;
-  
-  (Object.keys(data) as Array<keyof AppraisalData | 'sectionStatus'>).forEach((key) => {
-    if (key !== 'sectionStatus') {
-      const section = data[key as keyof AppraisalData];
-      if (section && typeof section === 'object' && 'apiScore' in (section as ScoredItem)) {
-        const s = (section as ScoredItem).apiScore;
-        if (typeof s === 'number') total += s;
-      }
+  APPRAISAL_SECTIONS.forEach((section) => {
+    const score = getSectionScore(section.id);
+    if (score !== null) {
+      total += score;
     }
   });
-  
   return total;
 };
 
@@ -270,7 +264,11 @@ export const getAllSectionScores = (): Record<string, number | null> => {
 
 export const getCompletedSectionsCount = (): number => {
   const data = getAppraisalData();
-  return Object.values(data.sectionStatus).filter(status => status === 'completed').length;
+  return APPRAISAL_SECTIONS.filter((section) => {
+    const dataKey = getDataKeyForSectionId(section.id);
+    return data.sectionStatus[section.id as string] === 'completed' || 
+           (dataKey && data.sectionStatus[dataKey as string] === 'completed');
+  }).length;
 };
 
 /**
@@ -301,9 +299,12 @@ export const isSectionCompleted = (sectionId: AppraisalSectionId): boolean => {
  */
 export const getIncompleteSections = (): string[] => {
   const data = getAppraisalData();
-  return APPRAISAL_SECTIONS.filter(
-    (section) => data.sectionStatus[section.id] !== 'completed'
-  ).map((section) => section.id);
+  return APPRAISAL_SECTIONS.filter((section) => {
+    const dataKey = getDataKeyForSectionId(section.id);
+    const isCompleted = data.sectionStatus[section.id as string] === 'completed' || 
+                        (dataKey && data.sectionStatus[dataKey as string] === 'completed');
+    return !isCompleted;
+  }).map((section) => section.id);
 };
 
 export const setUser = (user: UserProfile) => {
